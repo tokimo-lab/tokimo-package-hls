@@ -168,9 +168,10 @@ jobs:
             -p install-windows.tar.zst \
             -O "$RUNNER_TEMP/ffmpeg/install-windows.tar.zst"
           # windows-latest ships bsdtar which handles zstd via --use-compress-program=zstd.
-          # --force-local prevents tar from interpreting the colon in "D:\..." as a
-          # host:path SSH-style separator under git-bash.
-          tar --force-local --use-compress-program=zstd -xf "$RUNNER_TEMP/ffmpeg/install-windows.tar.zst" -C "$RUNNER_TEMP/ffmpeg"
+          # cd into the target dir first because git-bash tar misparses drive-letter
+          # paths like "D:\..." even with --force-local when passed via -C.
+          cd "$RUNNER_TEMP/ffmpeg"
+          tar --force-local --use-compress-program=zstd -xf install-windows.tar.zst
           ls "$RUNNER_TEMP/ffmpeg/install-windows/bin"
           ls "$RUNNER_TEMP/ffmpeg/ffmpeg-binding-windows"
           cat "$RUNNER_TEMP/ffmpeg/install-windows/META.txt" || true
