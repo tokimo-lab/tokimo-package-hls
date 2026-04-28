@@ -114,6 +114,7 @@ fn amd_gpu_present() -> bool {
 /// positives are not a concern in practice.
 fn apply_hw_presence_gates(caps: &mut HwCapabilities) {
     let has_intel = intel_gpu_present();
+    #[cfg(target_os = "linux")]
     let has_amd = amd_gpu_present();
 
     // VAAPI on Linux: requires Intel or AMD GPU.
