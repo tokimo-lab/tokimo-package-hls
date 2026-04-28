@@ -1,14 +1,14 @@
 use crate::hw_detect::get_hw_capabilities;
 use crate::pipeline::{HwBackend, PipelineParams, build_pipeline, select_backend};
 use crate::types::{AudioStreamInfo, TonemapOptions, needs_audio_transcode};
+use std::path::PathBuf;
+use std::sync::Arc;
 use tokimo_package_ffmpeg::AVHWDeviceContext;
 use tokimo_package_ffmpeg::best_encoder_for_audio_codec;
 use tokimo_package_ffmpeg::encoding::{calculate_audio_output, calculate_output_video_bitrate};
 use tokimo_package_ffmpeg::transcode::{
     CancellationToken, DirectInput, HlsOptions, HlsSegmentType, PauseToken, TranscodeOptions,
 };
-use std::path::PathBuf;
-use std::sync::Arc;
 
 /// HLS segment duration in seconds.
 pub const SEGMENT_DURATION: u32 = 6;
