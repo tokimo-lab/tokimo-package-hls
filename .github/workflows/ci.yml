@@ -110,9 +110,9 @@ jobs:
           mkdir -p "$RUNNER_TEMP/ffmpeg"
           gh release download "$FFMPEG_RELEASE_TAG" \
             -R "$FFMPEG_REPO" \
-            -p install-macos.tar.zst \
-            -O "$RUNNER_TEMP/ffmpeg/install-macos.tar.zst"
-          tar --zstd -xf "$RUNNER_TEMP/ffmpeg/install-macos.tar.zst" -C "$RUNNER_TEMP/ffmpeg"
+            -p install-macos-arm64.tar.zst \
+            -O "$RUNNER_TEMP/ffmpeg/install-macos-arm64.tar.zst"
+          tar --zstd -xf "$RUNNER_TEMP/ffmpeg/install-macos-arm64.tar.zst" -C "$RUNNER_TEMP/ffmpeg"
           ls -la "$RUNNER_TEMP/ffmpeg/install/lib/pkgconfig"
           cat "$RUNNER_TEMP/ffmpeg/install/META.txt" || true
 
