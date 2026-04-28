@@ -69,12 +69,18 @@ impl Cursor {
     /// Build a `Cursor` that reads from a local filesystem file.
     fn from_local(path: &str) -> io::Result<Self> {
         use std::fs::File;
+        #[cfg(unix)]
         use std::os::unix::fs::FileExt;
+        #[cfg(windows)]
+        use std::os::windows::fs::FileExt;
 
         let file = Arc::new(File::open(path)?);
         let read_at: ReadAt = Arc::new(move |offset: u64, size: usize| -> io::Result<Vec<u8>> {
             let mut buf = vec![0u8; size];
+            #[cfg(unix)]
             let n = file.read_at(&mut buf, offset)?;
+            #[cfg(windows)]
+            let n = file.seek_read(&mut buf, offset)?;
             buf.truncate(n);
             Ok(buf)
         });
