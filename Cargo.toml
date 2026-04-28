@@ -10,6 +10,6 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tracing = "0.1"
 uuid = { version = "1", features = ["v4"] }
-tokimo-package-ffmpeg = { path = "../tokimo-package-ffmpeg" }
+tokimo-package-ffmpeg = { git = "https://github.com/tokimo-lab/tokimo-package-ffmpeg", rev = "6ca698a1ec324f0f715ac4f4b5a72666dfd80f20" }
 notify = "7"
 
