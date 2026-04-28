@@ -43,3 +43,36 @@ tokimo-package-hls = { git = "https://github.com/tokimo-lab/tokimo-package-hls" 
 ## License
 
 MIT
+
+## Standalone development
+
+This crate depends on `tokimo-package-ffmpeg`, which links against a patched
+build of [jellyfin-ffmpeg](https://github.com/jellyfin/jellyfin-ffmpeg). When
+hacking on this repo standalone (outside the [`tokimo.io`](https://github.com/tokimo-lab/tokimo.io)
+monorepo, where it's resolved via a `[patch]` redirect), you need to provide
+those native libraries yourself.
+
+Easiest path:
+
+```bash
+# Pick your platform
+PLATFORM=linux  # or macos / windows
+mkdir -p .ffmpeg-install
+cd .ffmpeg-install
+gh release download nightly -R tokimo-lab/tokimo-package-ffmpeg \
+  -p install-${PLATFORM}.tar.zst
+tar --zstd -xf install-${PLATFORM}.tar.zst
+cd ..
+
+export FFMPEG_PKG_CONFIG_PATH=$PWD/.ffmpeg-install/install/lib/pkgconfig
+export FFMPEG_INCLUDE_DIR=$PWD/.ffmpeg-install/install/include
+export FFMPEG_DYN_DIR=$PWD/.ffmpeg-install/install/lib
+export LD_LIBRARY_PATH=$FFMPEG_DYN_DIR  # or DYLD_FALLBACK_LIBRARY_PATH on macOS
+
+cargo build
+```
+
+On macOS you'll additionally need the brew runtime dependencies the
+ffmpeg install dylibs were linked against — see `.github/workflows/ci.yml`
+for the full list. Inside the tokimo.io monorepo none of this is needed:
+the workspace builds `tokimo-package-ffmpeg` from local source.
