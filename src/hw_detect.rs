@@ -91,18 +91,12 @@ fn intel_gpu_present() -> bool {
 }
 
 /// Returns true if an AMD GPU is present (`amdgpu` driver on Linux).
+#[cfg(target_os = "linux")]
 fn amd_gpu_present() -> bool {
-    #[cfg(target_os = "linux")]
-    {
-        if let Ok(rd) = std::fs::read_dir("/sys/bus/pci/drivers/amdgpu") {
-            return rd.count() > 0;
-        }
-        false
+    if let Ok(rd) = std::fs::read_dir("/sys/bus/pci/drivers/amdgpu") {
+        return rd.count() > 0;
     }
-    #[cfg(not(target_os = "linux"))]
-    {
-        true
-    }
+    false
 }
 
 /// Apply runtime hardware-presence gates to capabilities detected via FFI.
