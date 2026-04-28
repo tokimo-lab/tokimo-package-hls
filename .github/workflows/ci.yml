@@ -167,8 +167,10 @@ jobs:
             -R "$FFMPEG_REPO" \
             -p install-windows.tar.zst \
             -O "$RUNNER_TEMP/ffmpeg/install-windows.tar.zst"
-          # windows-latest ships bsdtar which handles zstd via --use-compress-program=zstd
-          tar --use-compress-program=zstd -xf "$RUNNER_TEMP/ffmpeg/install-windows.tar.zst" -C "$RUNNER_TEMP/ffmpeg"
+          # windows-latest ships bsdtar which handles zstd via --use-compress-program=zstd.
+          # --force-local prevents tar from interpreting the colon in "D:\..." as a
+          # host:path SSH-style separator under git-bash.
+          tar --force-local --use-compress-program=zstd -xf "$RUNNER_TEMP/ffmpeg/install-windows.tar.zst" -C "$RUNNER_TEMP/ffmpeg"
           ls "$RUNNER_TEMP/ffmpeg/install-windows/bin"
           ls "$RUNNER_TEMP/ffmpeg/ffmpeg-binding-windows"
           cat "$RUNNER_TEMP/ffmpeg/install-windows/META.txt" || true
