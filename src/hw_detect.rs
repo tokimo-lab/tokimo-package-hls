@@ -27,7 +27,7 @@ static FFMPEG_PATH: OnceLock<PathBuf> = OnceLock::new();
 ///
 /// Search order:
 /// 1. `FFMPEG_BIN` / `FFMPEG_LOCATION` env vars
-/// 2. `bin/ffmpeg/ffmpeg` relative to workspace root
+/// 2. `bin/tokimo-lib/current/bin/ffmpeg` relative to workspace root
 /// 3. System `PATH`
 pub fn resolve_ffmpeg_binary() -> PathBuf {
     FFMPEG_PATH
@@ -53,7 +53,7 @@ pub fn resolve_ffmpeg_binary() -> PathBuf {
 
             if let Ok(cwd) = std::env::current_dir() {
                 for ancestor in cwd.ancestors() {
-                    let candidate = ancestor.join("bin/ffmpeg/ffmpeg");
+                    let candidate = ancestor.join("bin/tokimo-lib/current/bin/ffmpeg");
                     if candidate.is_file() {
                         info!("[HW] FFmpeg from workspace: {}", candidate.display());
                         return candidate;
