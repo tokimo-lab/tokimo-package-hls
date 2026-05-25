@@ -57,7 +57,6 @@ jobs:
         env:
           FFMPEG_PKG_CONFIG_PATH: ${{ runner.temp }}/ffmpeg/install/lib/pkgconfig
           FFMPEG_INCLUDE_DIR: ${{ runner.temp }}/ffmpeg/install/include
-          FFMPEG_DYN_DIR: ${{ runner.temp }}/ffmpeg/install/lib
           LD_LIBRARY_PATH: ${{ runner.temp }}/ffmpeg/install/lib
           PKG_CONFIG_PATH: ${{ runner.temp }}/ffmpeg/install/lib/pkgconfig
         run: cargo clippy --lib --bins --tests -- -D warnings
@@ -66,7 +65,6 @@ jobs:
         env:
           FFMPEG_PKG_CONFIG_PATH: ${{ runner.temp }}/ffmpeg/install/lib/pkgconfig
           FFMPEG_INCLUDE_DIR: ${{ runner.temp }}/ffmpeg/install/include
-          FFMPEG_DYN_DIR: ${{ runner.temp }}/ffmpeg/install/lib
           LD_LIBRARY_PATH: ${{ runner.temp }}/ffmpeg/install/lib
           PKG_CONFIG_PATH: ${{ runner.temp }}/ffmpeg/install/lib/pkgconfig
         run: cargo build --lib --bins --tests
@@ -75,7 +73,6 @@ jobs:
         env:
           FFMPEG_PKG_CONFIG_PATH: ${{ runner.temp }}/ffmpeg/install/lib/pkgconfig
           FFMPEG_INCLUDE_DIR: ${{ runner.temp }}/ffmpeg/install/include
-          FFMPEG_DYN_DIR: ${{ runner.temp }}/ffmpeg/install/lib
           LD_LIBRARY_PATH: ${{ runner.temp }}/ffmpeg/install/lib
           PKG_CONFIG_PATH: ${{ runner.temp }}/ffmpeg/install/lib/pkgconfig
         run: cargo test --lib --bins
@@ -126,7 +123,6 @@ jobs:
         env:
           FFMPEG_PKG_CONFIG_PATH: ${{ runner.temp }}/ffmpeg/install/lib/pkgconfig
           FFMPEG_INCLUDE_DIR: ${{ runner.temp }}/ffmpeg/install/include
-          FFMPEG_DYN_DIR: ${{ runner.temp }}/ffmpeg/install/lib
           DYLD_FALLBACK_LIBRARY_PATH: ${{ runner.temp }}/ffmpeg/install/lib
           PKG_CONFIG_PATH: ${{ runner.temp }}/ffmpeg/install/lib/pkgconfig
         run: cargo clippy --lib --bins --tests -- -D warnings
@@ -135,7 +131,6 @@ jobs:
         env:
           FFMPEG_PKG_CONFIG_PATH: ${{ runner.temp }}/ffmpeg/install/lib/pkgconfig
           FFMPEG_INCLUDE_DIR: ${{ runner.temp }}/ffmpeg/install/include
-          FFMPEG_DYN_DIR: ${{ runner.temp }}/ffmpeg/install/lib
           DYLD_FALLBACK_LIBRARY_PATH: ${{ runner.temp }}/ffmpeg/install/lib
           PKG_CONFIG_PATH: ${{ runner.temp }}/ffmpeg/install/lib/pkgconfig
         run: cargo build --lib --bins --tests
@@ -144,7 +139,6 @@ jobs:
         env:
           FFMPEG_PKG_CONFIG_PATH: ${{ runner.temp }}/ffmpeg/install/lib/pkgconfig
           FFMPEG_INCLUDE_DIR: ${{ runner.temp }}/ffmpeg/install/include
-          FFMPEG_DYN_DIR: ${{ runner.temp }}/ffmpeg/install/lib
           DYLD_FALLBACK_LIBRARY_PATH: ${{ runner.temp }}/ffmpeg/install/lib
           PKG_CONFIG_PATH: ${{ runner.temp }}/ffmpeg/install/lib/pkgconfig
         run: cargo test --lib --bins

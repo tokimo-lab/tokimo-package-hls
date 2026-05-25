@@ -66,8 +66,7 @@ cd ..
 
 export FFMPEG_PKG_CONFIG_PATH=$PWD/.ffmpeg-install/install/lib/pkgconfig
 export FFMPEG_INCLUDE_DIR=$PWD/.ffmpeg-install/install/include
-export FFMPEG_DYN_DIR=$PWD/.ffmpeg-install/install/lib
-export LD_LIBRARY_PATH=$FFMPEG_DYN_DIR  # or DYLD_FALLBACK_LIBRARY_PATH on macOS
+export LD_LIBRARY_PATH=$PWD/.ffmpeg-install/install/lib  # or DYLD_FALLBACK_LIBRARY_PATH on macOS
 
 cargo build
 ```
