@@ -33,8 +33,8 @@ pub fn build_transcode_options(
     target_audio_codec: Option<&str>,
     tonemap: Option<&TonemapOptions>,
     video_codec: Option<&str>,
-    _video_width: Option<u32>,
-    _video_height: Option<u32>,
+    video_width: Option<u32>,
+    video_height: Option<u32>,
     video_fps: Option<f64>,
     video_bitrate: Option<u64>,
     target_video_bitrate: Option<u64>,
@@ -172,6 +172,11 @@ pub fn build_transcode_options(
 
     // ── Video filter chain ─────────────────────────────────────────────────
     let video_filter = pipe.as_ref().and_then(|p| p.video_filter.clone());
+    let output_resolution = if transcode_video {
+        target_output_resolution(video_width, video_height, target_video_bitrate)
+    } else {
+        None
+    };
 
     // ── Decode / filter backend ────────────────────────────────────────────
     let decode = pipe.as_ref().and_then(|p| p.decode.clone());
@@ -256,6 +261,7 @@ pub fn build_transcode_options(
         deinterlace = deinterlace,
         pipeline_path = %pipeline_path,
         video_filter = %vf_str,
+        output_resolution = %output_resolution.as_deref().unwrap_or("source"),
         ""
     );
 
@@ -286,7 +292,7 @@ pub fn build_transcode_options(
         preset: vid_preset,
         crf: vid_crf,
         bitrate: vid_bitrate,
-        resolution: None,
+        resolution: output_resolution,
         duration: None,
         progress: false,
         seek: seek_seconds,
@@ -325,6 +331,38 @@ fn effective_output_video_bitrate(
 ) -> u64 {
     let calculated = calculate_output_video_bitrate(source_bitrate_bps, input_codec, output_codec);
     target_video_bitrate.map_or(calculated, |target| calculated.min(target.div_ceil(1000)))
+}
+
+fn target_output_resolution(
+    source_width: Option<u32>,
+    source_height: Option<u32>,
+    target_video_bitrate: Option<u64>,
+) -> Option<String> {
+    let (width, height, bitrate) = (source_width?, source_height?, target_video_bitrate?);
+    if width == 0 || height == 0 {
+        return None;
+    }
+
+    let (max_width, max_height) = match bitrate {
+        15_000_000.. => (3840, 2160),
+        10_000_000.. => (2560, 1440),
+        5_000_000.. => (1920, 1080),
+        3_000_000.. => (1280, 720),
+        2_000_000.. => (960, 540),
+        1_500_000.. => (854, 480),
+        768_000.. => (640, 360),
+        512_000.. => (512, 288),
+        384_000.. => (426, 240),
+        _ => (320, 180),
+    };
+    if width <= max_width && height <= max_height {
+        return None;
+    }
+
+    let scale = (max_width as f64 / width as f64).min(max_height as f64 / height as f64);
+    let scaled_width = (((width as f64 * scale).floor() as u32) & !1).max(2);
+    let scaled_height = (((height as f64 * scale).floor() as u32) & !1).max(2);
+    Some(format!("{scaled_width}x{scaled_height}"))
 }
 
 /// Generate a VOD m3u8 playlist.
@@ -498,6 +536,7 @@ mod tests {
 
         assert_eq!(opts.video_codec, "copy");
         assert_eq!(opts.bitrate, None);
+        assert_eq!(opts.resolution, None);
         assert_eq!(opts.maxrate, None);
         assert_eq!(opts.bufsize, None);
         assert_eq!(opts.crf, None);
@@ -505,6 +544,32 @@ mod tests {
             opts.hls.as_ref().map(|hls| hls.segment_type),
             Some(HlsSegmentType::Mpegts)
         );
+    }
+
+    #[test]
+    fn target_video_bitrate_scales_4k_to_matching_ladder_resolution() {
+        assert_eq!(
+            target_output_resolution(Some(3840), Some(2160), Some(4_000_000)).as_deref(),
+            Some("1280x720")
+        );
+        assert_eq!(
+            target_output_resolution(Some(3840), Some(2160), Some(1_000_000)).as_deref(),
+            Some("640x360")
+        );
+        assert_eq!(
+            target_output_resolution(Some(3840), Some(2160), Some(256_000)).as_deref(),
+            Some("320x180")
+        );
+    }
+
+    #[test]
+    fn target_video_bitrate_preserves_aspect_ratio_and_never_upscales() {
+        assert_eq!(
+            target_output_resolution(Some(1920), Some(800), Some(3_000_000)).as_deref(),
+            Some("1280x532")
+        );
+        assert_eq!(target_output_resolution(Some(640), Some(360), Some(4_000_000)), None);
+        assert_eq!(target_output_resolution(None, None, Some(1_000_000)), None);
     }
 
     #[test]
