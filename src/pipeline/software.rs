@@ -22,6 +22,8 @@ pub(super) fn build_software(p: &PipelineParams<'_>) -> PipelineConfig {
     };
 
     let use_hevc_sw = p.use_hevc && p.caps.has_libx265;
+    let (bitrate, maxrate, bufsize, crf) =
+        rate_control(p.out_bitrate_kbps, p.target_video_bitrate.is_some(), use_hevc_sw);
     PipelineConfig {
         encoder: if use_hevc_sw {
             "libx265".to_string()
@@ -29,11 +31,10 @@ pub(super) fn build_software(p: &PipelineParams<'_>) -> PipelineConfig {
             "libx264".to_string()
         },
         preset: "veryfast".to_string(),
-        bitrate: None,
-        maxrate: None,
-        bufsize: None,
-        // libx265 CRF 28 ≈ libx264 CRF 23 visually (same ~40% bitrate saving as HEVC).
-        crf: if use_hevc_sw { Some(28) } else { Some(23) },
+        bitrate,
+        maxrate,
+        bufsize,
+        crf,
         profile: if use_hevc_sw {
             Some("main".to_string())
         } else {
@@ -46,6 +47,51 @@ pub(super) fn build_software(p: &PipelineParams<'_>) -> PipelineConfig {
         filter_backend: None,
         video_filter: Some(format!("{deint}{base}")),
         use_cuvid: false,
+    }
+}
+
+fn rate_control(
+    out_bitrate_kbps: u64,
+    has_target_video_bitrate: bool,
+    use_hevc_sw: bool,
+) -> (Option<String>, Option<String>, Option<String>, Option<u32>) {
+    if has_target_video_bitrate {
+        let bitrate = format!("{out_bitrate_kbps}k");
+        (
+            Some(bitrate.clone()),
+            Some(bitrate),
+            Some(format!("{}k", out_bitrate_kbps * 2)),
+            None,
+        )
+    } else {
+        (
+            None,
+            None,
+            None,
+            // libx265 CRF 28 ≈ libx264 CRF 23 visually (same ~40% bitrate saving as HEVC).
+            if use_hevc_sw { Some(28) } else { Some(23) },
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::rate_control;
+
+    #[test]
+    fn target_bitrate_uses_bounded_rate_control() {
+        let (bitrate, maxrate, bufsize, crf) = rate_control(4_000, true, false);
+
+        assert_eq!(bitrate.as_deref(), Some("4000k"));
+        assert_eq!(maxrate.as_deref(), Some("4000k"));
+        assert_eq!(bufsize.as_deref(), Some("8000k"));
+        assert_eq!(crf, None);
+    }
+
+    #[test]
+    fn no_target_bitrate_keeps_codec_specific_crf() {
+        assert_eq!(rate_control(8_000, false, false), (None, None, None, Some(23)));
+        assert_eq!(rate_control(8_000, false, true), (None, None, None, Some(28)));
     }
 }
 

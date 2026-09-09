@@ -37,6 +37,7 @@ pub fn build_transcode_options(
     _video_height: Option<u32>,
     video_fps: Option<f64>,
     video_bitrate: Option<u64>,
+    target_video_bitrate: Option<u64>,
     deinterlace: bool,
     client_supports_hevc: bool,
     cancel: Option<CancellationToken>,
@@ -88,7 +89,12 @@ pub fn build_transcode_options(
 
     let out_codec_for_bitrate = if prefer_hevc { "hevc" } else { "h264" };
     let out_bitrate_kbps = if transcode_video {
-        calculate_output_video_bitrate(video_bitrate, video_codec.unwrap_or("hevc"), out_codec_for_bitrate)
+        effective_output_video_bitrate(
+            video_bitrate,
+            video_codec.unwrap_or("hevc"),
+            out_codec_for_bitrate,
+            target_video_bitrate,
+        )
     } else {
         0
     };
@@ -106,6 +112,7 @@ pub fn build_transcode_options(
             video_codec,
             video_fps,
             video_bitrate,
+            target_video_bitrate,
             segment_duration,
             deinterlace,
             tonemap,
@@ -310,6 +317,16 @@ pub fn build_transcode_options(
     }
 }
 
+fn effective_output_video_bitrate(
+    source_bitrate_bps: Option<u64>,
+    input_codec: &str,
+    output_codec: &str,
+    target_video_bitrate: Option<u64>,
+) -> u64 {
+    let calculated = calculate_output_video_bitrate(source_bitrate_bps, input_codec, output_codec);
+    target_video_bitrate.map_or(calculated, |target| calculated.min(target.div_ceil(1000)))
+}
+
 /// Generate a VOD m3u8 playlist.
 ///
 /// Matches Jellyfin `DynamicHlsPlaylistGenerator.CreateMainPlaylist()`:
@@ -429,6 +446,66 @@ fn compute_keyframe_segments(keyframes: &[f64], desired_secs: f64, duration_secs
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn target_video_bitrate_caps_calculated_output() {
+        assert_eq!(
+            effective_output_video_bitrate(Some(10_000_000), "h264", "h264", None),
+            10_000
+        );
+        assert_eq!(
+            effective_output_video_bitrate(Some(10_000_000), "h264", "h264", Some(4_000_000)),
+            4_000
+        );
+        assert_eq!(
+            effective_output_video_bitrate(Some(10_000_000), "h264", "h264", Some(20_000_000)),
+            10_000
+        );
+        assert_eq!(
+            effective_output_video_bitrate(Some(10_000_000), "h264", "h264", Some(1)),
+            1
+        );
+    }
+
+    #[test]
+    fn target_video_bitrate_does_not_affect_copy_mode() {
+        let opts = build_transcode_options(
+            None,
+            0,
+            &[],
+            "/tmp/hls-copy-test",
+            SEGMENT_DURATION,
+            None,
+            0,
+            false,
+            None,
+            None,
+            None,
+            Some("h264"),
+            None,
+            None,
+            None,
+            Some(10_000_000),
+            Some(4_000_000),
+            false,
+            true,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+
+        assert_eq!(opts.video_codec, "copy");
+        assert_eq!(opts.bitrate, None);
+        assert_eq!(opts.maxrate, None);
+        assert_eq!(opts.bufsize, None);
+        assert_eq!(opts.crf, None);
+        assert_eq!(
+            opts.hls.as_ref().map(|hls| hls.segment_type),
+            Some(HlsSegmentType::Mpegts)
+        );
+    }
 
     #[test]
     fn test_vod_playlist_fmp4() {

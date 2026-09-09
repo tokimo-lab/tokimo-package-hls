@@ -105,6 +105,11 @@ pub struct CreateSessionRequest {
     /// Jellyfin: ScaleBitrate(min(source, cap), inputCodec, outputCodec).
     #[serde(default)]
     pub video_bitrate: Option<u64>,
+    /// Requested maximum output video bitrate in bits/sec.
+    /// When set, video transcoding is constrained to this bitrate or the
+    /// codec-adjusted source bitrate, whichever is lower.
+    #[serde(default)]
+    pub target_video_bitrate: Option<u64>,
     /// Whether the source video is interlaced and needs deinterlacing.
     #[serde(default)]
     pub deinterlace: bool,
@@ -138,6 +143,24 @@ pub struct CreateSessionRequest {
 
 fn default_true() -> bool {
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CreateSessionRequest;
+
+    #[test]
+    fn target_video_bitrate_defaults_to_none_when_omitted() {
+        let request: CreateSessionRequest = serde_json::from_value(serde_json::json!({
+            "fileId": "video-1",
+            "durationSecs": 60.0,
+            "audioStreamIndex": 0,
+            "audioStreams": []
+        }))
+        .expect("request without targetVideoBitrate should deserialize");
+
+        assert_eq!(request.target_video_bitrate, None);
+    }
 }
 
 /// Snapshot of an active HLS session's playback state.

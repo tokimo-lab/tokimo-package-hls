@@ -275,6 +275,7 @@ impl HlsSession {
             req.video_height,
             req.video_fps,
             req.video_bitrate,
+            req.target_video_bitrate,
             req.deinterlace,
             req.client_supports_hevc,
             Some(cancel_token.clone()),

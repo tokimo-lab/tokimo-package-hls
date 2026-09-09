@@ -135,6 +135,7 @@ pub struct PipelineParams<'a> {
     pub video_codec: Option<&'a str>,
     pub video_fps: Option<f64>,
     pub video_bitrate: Option<u64>,
+    pub target_video_bitrate: Option<u64>,
     pub segment_duration: u32,
     pub deinterlace: bool,
     pub tonemap: Option<&'a TonemapOptions>,
