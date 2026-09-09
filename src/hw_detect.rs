@@ -10,6 +10,8 @@
 //!    CUVID decoder via `avcodec_open2` to detect which codecs the GPU supports
 //!    in hardware (e.g. AV1 NVDEC requires Ampere+; Turing only does H.264/HEVC).
 
+#[cfg(target_os = "linux")]
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 use tracing::info;
@@ -99,17 +101,46 @@ fn amd_gpu_present() -> bool {
     false
 }
 
+#[cfg(any(target_os = "linux", test))]
+fn is_nvidia_gpu_device_name(name: &str) -> bool {
+    name.strip_prefix("nvidia")
+        .is_some_and(|index| !index.is_empty() && index.chars().all(|character| character.is_ascii_digit()))
+}
+
+/// Returns true when the process can access the NVIDIA control device and at
+/// least one GPU device. `/proc/driver/nvidia` may be inherited from the host
+/// by an ordinary container even when NVIDIA devices were not passed through.
+#[cfg(target_os = "linux")]
+fn nvidia_gpu_present() -> bool {
+    Path::new("/dev/nvidiactl").exists()
+        && std::fs::read_dir("/dev").is_ok_and(|entries| {
+            entries
+                .flatten()
+                .any(|entry| entry.file_name().to_str().is_some_and(is_nvidia_gpu_device_name))
+        })
+}
+
 /// Apply runtime hardware-presence gates to capabilities detected via FFI.
 ///
 /// FFmpeg's internal registry only reflects what was compiled in, not what
 /// hardware is installed. This pass zeros out backends whose GPU is absent.
-/// NVIDIA (nvenc/cuvid/cuda) is trusted from the FFI check — the CUDA runtime
-/// library is only loadable when NVIDIA drivers are installed, so false
-/// positives are not a concern in practice.
 fn apply_hw_presence_gates(caps: &mut HwCapabilities) {
     let has_intel = intel_gpu_present();
     #[cfg(target_os = "linux")]
     let has_amd = amd_gpu_present();
+
+    // FFmpeg registry discovery only proves that CUDA support was compiled in.
+    // Containers without NVIDIA device passthrough still see those codecs and
+    // can even inherit /proc/driver/nvidia from the host.
+    #[cfg(target_os = "linux")]
+    if !nvidia_gpu_present() {
+        caps.has_nvenc = false;
+        caps.has_nvenc_hevc = false;
+        caps.has_cuvid = false;
+        caps.has_cuda_full = false;
+        caps.has_bwdif_cuda = false;
+        caps.cuvid_hw_codecs.clear();
+    }
 
     // VAAPI on Linux: requires Intel or AMD GPU.
     // nvidia-vaapi-driver is detected separately via its driver library.
@@ -183,3 +214,17 @@ pub fn get_hw_capabilities() -> &'static HwCapabilities {
 /// Get the CUVID decoder name for the given source video codec.
 /// Delegates to `tokimo_package_ffmpeg::capabilities::get_cuvid_decoder`.
 pub use tokimo_package_ffmpeg::capabilities::get_cuvid_decoder;
+
+#[cfg(test)]
+mod tests {
+    use super::is_nvidia_gpu_device_name;
+
+    #[test]
+    fn identifies_only_numbered_nvidia_gpu_nodes() {
+        assert!(is_nvidia_gpu_device_name("nvidia0"));
+        assert!(is_nvidia_gpu_device_name("nvidia12"));
+        assert!(!is_nvidia_gpu_device_name("nvidiactl"));
+        assert!(!is_nvidia_gpu_device_name("nvidia-uvm"));
+        assert!(!is_nvidia_gpu_device_name("nvidia"));
+    }
+}
