@@ -120,6 +120,24 @@ fn nvidia_gpu_present() -> bool {
         })
 }
 
+#[cfg(any(target_os = "linux", test))]
+fn is_dri_render_device_name(name: &str) -> bool {
+    name.strip_prefix("renderD")
+        .is_some_and(|index| !index.is_empty() && index.chars().all(|character| character.is_ascii_digit()))
+}
+
+/// Returns true when a DRM render node is available inside this process's
+/// device namespace. Host PCI driver entries alone do not grant a container
+/// access to VAAPI, QSV, or AMF devices.
+#[cfg(target_os = "linux")]
+fn dri_render_device_present() -> bool {
+    std::fs::read_dir("/dev/dri").is_ok_and(|entries| {
+        entries
+            .flatten()
+            .any(|entry| entry.file_name().to_str().is_some_and(is_dri_render_device_name))
+    })
+}
+
 /// Apply runtime hardware-presence gates to capabilities detected via FFI.
 ///
 /// FFmpeg's internal registry only reflects what was compiled in, not what
@@ -128,6 +146,12 @@ fn apply_hw_presence_gates(caps: &mut HwCapabilities) {
     let has_intel = intel_gpu_present();
     #[cfg(target_os = "linux")]
     let has_amd = amd_gpu_present();
+    #[cfg(target_os = "linux")]
+    let has_dri_render_device = dri_render_device_present();
+    #[cfg(target_os = "linux")]
+    let has_intel_device_access = has_intel && has_dri_render_device;
+    #[cfg(not(target_os = "linux"))]
+    let has_intel_device_access = has_intel;
 
     // FFmpeg registry discovery only proves that CUDA support was compiled in.
     // Containers without NVIDIA device passthrough still see those codecs and
@@ -145,7 +169,7 @@ fn apply_hw_presence_gates(caps: &mut HwCapabilities) {
     // VAAPI on Linux: requires Intel or AMD GPU.
     // nvidia-vaapi-driver is detected separately via its driver library.
     #[cfg(target_os = "linux")]
-    if !has_intel && !has_amd {
+    {
         let has_nvvaapi = [
             "/usr/lib/x86_64-linux-gnu/dri/nvidia_drv_video.so",
             "/usr/lib64/dri/nvidia_drv_video.so",
@@ -154,7 +178,7 @@ fn apply_hw_presence_gates(caps: &mut HwCapabilities) {
         .iter()
         .any(|p| std::path::Path::new(p).exists());
 
-        if !has_nvvaapi {
+        if !has_dri_render_device || (!has_intel && !has_amd && !has_nvvaapi) {
             caps.has_vaapi = false;
             caps.has_vaapi_full = false;
             caps.has_vaapi_hevc = false;
@@ -162,7 +186,7 @@ fn apply_hw_presence_gates(caps: &mut HwCapabilities) {
     }
 
     // QSV requires Intel GPU.
-    if !has_intel {
+    if !has_intel_device_access {
         caps.has_qsv = false;
         caps.has_qsv_full = false;
         caps.has_qsv_hevc = false;
@@ -170,7 +194,7 @@ fn apply_hw_presence_gates(caps: &mut HwCapabilities) {
 
     // AMF requires AMD GPU (on Linux; Windows D3D12 path keeps FFI result).
     #[cfg(target_os = "linux")]
-    if !has_amd {
+    if !has_amd || !has_dri_render_device {
         caps.has_amf = false;
         caps.has_amf_hevc = false;
     }
@@ -217,7 +241,7 @@ pub use tokimo_package_ffmpeg::capabilities::get_cuvid_decoder;
 
 #[cfg(test)]
 mod tests {
-    use super::is_nvidia_gpu_device_name;
+    use super::{is_dri_render_device_name, is_nvidia_gpu_device_name};
 
     #[test]
     fn identifies_only_numbered_nvidia_gpu_nodes() {
@@ -226,5 +250,14 @@ mod tests {
         assert!(!is_nvidia_gpu_device_name("nvidiactl"));
         assert!(!is_nvidia_gpu_device_name("nvidia-uvm"));
         assert!(!is_nvidia_gpu_device_name("nvidia"));
+    }
+
+    #[test]
+    fn identifies_only_drm_render_nodes() {
+        assert!(is_dri_render_device_name("renderD128"));
+        assert!(is_dri_render_device_name("renderD129"));
+        assert!(!is_dri_render_device_name("card0"));
+        assert!(!is_dri_render_device_name("renderD"));
+        assert!(!is_dri_render_device_name("renderDfoo"));
     }
 }
